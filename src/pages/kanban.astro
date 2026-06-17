@@ -1,0 +1,31 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Kanban - Rafif Muchsin" description="Clear your mental clutter and boost daily productivity. Try a web-based Kanban designed to balance your workload and simplify your personal life.">
+  <body class="h-full w-full overflow-hidden bg-background">
+    <div id="app-root" class="flex flex-col h-full w-full">
+      <!-- Topbar (minimal) -->
+      <div class="flex items-center h-(--topbar-height) px-4 border-b border-(--topbar-border) bg-(--topbar-bg)">
+        <a href="/" class="text-sm font-semibold text-text-primary no-underline font-secondary tracking-tight">RMSN Note</a>
+        <span class="mx-2 text-text-muted text-xs">/</span>
+        <span class="text-sm text-text-secondary pt-1">Kanban</span>
+      </div>
+      <div id="kanban-board" class="flex-1 overflow-hidden"></div>
+    </div>
+  </body>
+</BaseLayout>
+
+<script>
+import { KanbanBoard } from '../components/kanban/KanbanBoard.ts';
+
+const boardContainer = document.getElementById('kanban-board');
+if (boardContainer) {
+  new KanbanBoard(boardContainer);
+}
+</script>
+
+<style>
+  :root { height: 100%; }
+  body { height: 100%; margin: 0; padding: 0; }
+</style>

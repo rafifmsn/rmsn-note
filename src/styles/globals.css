@@ -1,0 +1,407 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-primary: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-secondary: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --color-background: #010100;
+  --color-surface: #09090b;
+  --color-border: #202124;
+
+  --color-surface-raised: #111113;
+  --color-surface-overlay: #18181b;
+
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #52525b;
+
+  --color-accent: #ffffff;
+  --color-accent-subtle: #27272a;
+  --color-danger: #ef4444;
+  --color-danger-subtle: #3f1212;
+  --color-success: #22c55e;
+
+  --btn-primary-bg: #fafafa;
+  --btn-primary-text: #09090b;
+  --btn-primary-hover-bg: #e4e4e7;
+  --btn-secondary-bg: #18181b;
+  --btn-secondary-text: #fafafa;
+  --btn-secondary-border: #27272a;
+  --btn-secondary-hover-bg: #27272a;
+  --btn-ghost-text: #a1a1aa;
+  --btn-ghost-hover-bg: #18181b;
+  --btn-ghost-hover-text: #fafafa;
+
+  --sidebar-width: 240px;
+  --sidebar-bg: #09090b;
+  --sidebar-item-hover: #18181b;
+  --sidebar-item-active: #27272a;
+
+  --topbar-height: 48px;
+  --topbar-bg: #09090b;
+  --topbar-border: #202124;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  :root {
+    color-scheme: dark;
+  }
+  ::selection {
+    background-color: var(--color-selection);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
+}
+
+@layer components {
+  #preview-container {
+    padding: 24px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .md-preview {
+    font-family: var(--font-primary);
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  .md-preview h1,
+  .md-preview h2,
+  .md-preview h3,
+  .md-preview h4,
+  .md-preview h5,
+  .md-preview h6 {
+    font-family: var(--font-secondary);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    line-height: 1.3;
+  }
+  .md-preview h1 {
+    font-size: 24px;
+  }
+  .md-preview h2 {
+    font-size: 20px;
+  }
+  .md-preview h3 {
+    font-size: 18px;
+  }
+  .md-preview p {
+    margin: 0.75em 0;
+  }
+  .md-preview a {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .md-preview blockquote {
+    border-left: 3px solid var(--color-border);
+    margin: 1em 0;
+    padding: 0.25em 1em;
+    color: var(--color-text-muted);
+  }
+
+  .md-preview ul {
+    list-style-type: disc !important;
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+    padding-left: 24px !important;
+    display: block !important;
+  }
+
+  .md-preview ol {
+    list-style-type: decimal !important;
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+    padding-left: 24px !important;
+    display: block !important;
+  }
+
+  .md-preview li {
+    display: list-item !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Ensure child elements inside ordered lists behave natively */
+  .md-preview ul ul,
+  .md-preview ol ul {
+    list-style-type: circle !important;
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .md-preview ul ol,
+  .md-preview ol ol {
+    list-style-type: lower-alpha !important;
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Code Highlighter Structural Normalization Blocks */
+  .md-preview pre:has(pre) {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 1.5rem 0 !important;
+    overflow: visible !important;
+  }
+  .md-preview pre,
+  .md-preview pre pre {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .md-preview pre code {
+    font-size: 13px;
+    line-height: 1.6;
+    font-family:
+      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+    color: var(--color-text-primary) !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Shiki/Rehype Content Color Targets */
+  .md-preview pre .comment,
+  .md-preview pre [style*="color:#6a737d"],
+  .md-preview pre [style*="color:#5c6370"] {
+    color: var(--syntax-comment) !important;
+    font-style: italic;
+  }
+  .md-preview pre .keyword,
+  .md-preview pre [style*="color:#d73a49"],
+  .md-preview pre [style*="color:#e06c75"] {
+    color: var(--syntax-keyword) !important;
+    font-weight: 600;
+  }
+  .md-preview pre .function,
+  .md-preview pre [style*="color:#6f42c1"],
+  .md-preview pre [style*="color:#61afef"] {
+    color: var(--syntax-function) !important;
+  }
+  .md-preview pre .string,
+  .md-preview pre [style*="color:#032f62"],
+  .md-preview pre [style*="color:#98c379"] {
+    color: var(--syntax-string) !important;
+  }
+  .md-preview pre .type,
+  .md-preview pre [style*="color:#005cc5"],
+  .md-preview pre [style*="color:#c678dd"] {
+    color: var(--syntax-type) !important;
+  }
+  .md-preview pre .variable,
+  .md-preview pre .property,
+  .md-preview pre [style*="color:#24292e"],
+  .md-preview pre [style*="color:#abb2bf"] {
+    color: var(--syntax-variable) !important;
+  }
+  .md-preview pre .number,
+  .md-preview pre [style*="color:#005cc5"],
+  .md-preview pre [style*="color:#d19a66"] {
+    color: var(--syntax-number) !important;
+  }
+
+  .md-preview .mermaid-block {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: transparent !important; /* Blends perfectly into your main preview window */
+    border: none !important; /* Destroys the hard card border lines */
+    box-shadow: none !important;
+    padding: 0 !important; /* Strip out container padding to eliminate layout gaps */
+    margin: 1.5rem 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Force the SVG chart layout to scale to 100% container width 
+     and automatically compute the exact height proportionally with zero gaps */
+  .md-preview .mermaid-block svg {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    background: transparent !important;
+    display: block !important;
+  }
+
+  /* Interactive Components (Tables, Tasks, Lists) */
+  .md-preview table {
+    display: inline-block !important;
+    max-width: 100% !important;
+    width: auto !important;
+    overflow-x: auto !important;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 13px;
+    vertical-align: top;
+    -webkit-overflow-scrolling: touch;
+  }
+  .md-preview th,
+  .md-preview td {
+    border: 1px solid var(--color-border);
+    padding: 8px 12px;
+    text-align: left;
+    white-space: nowrap !important;
+  }
+  .md-preview th {
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+  .md-preview ul,
+  .md-preview ol {
+    margin: 0.75em 0;
+    padding-left: 1.5em;
+  }
+  .md-preview li {
+    margin: 0.25em 0;
+  }
+  .md-preview hr {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 1.5em 0;
+  }
+  .md-preview .task-list-item {
+    list-style: none;
+    margin-left: -1.5em;
+  }
+  .md-preview .task-list-item input[type="checkbox"] {
+    margin-right: 8px;
+  }
+  .md-preview img {
+    max-width: 100%;
+    border-radius: 6px;
+  }
+  .md-preview .katex {
+    color: var(--color-text-primary);
+  }
+  .md-preview .katex-display {
+    margin: 1em 0;
+  }
+  .md-preview .mermaid svg {
+    max-width: 100%;
+    height: auto;
+    background: transparent !important;
+  }
+
+  /* Layout Utility Control Actions */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition:
+      background 150ms ease,
+      color 150ms ease;
+  }
+  .icon-btn:hover {
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+  }
+  .icon-btn--danger:hover {
+    background: var(--color-danger-subtle);
+    color: var(--color-danger);
+  }
+
+  .icon-btn-2 {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--btn-secondary-border);
+    background: var(--btn-secondary-bg);
+    cursor: pointer;
+    transition:
+      background 150ms ease,
+      color 150ms ease;
+  }
+}
+
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: animate-in 150ms ease-out;
+}
+.fade-in {
+  animation: fade-in 150ms ease-out;
+}
+.slide-up {
+  animation: slide-up 150ms ease-out;
+}

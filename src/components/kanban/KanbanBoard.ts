@@ -1,0 +1,145 @@
+/**
+ * KanbanBoard — column layout with native HTML5 drag-and-drop.
+ */
+
+import type { KanbanCard, ColumnId } from "../../services/db.ts";
+import { COLUMN_LABELS } from "../../services/db.ts";
+import {
+  getKanbanCards,
+  saveKanbanCard,
+  deleteKanbanCard,
+  updateKanbanCardColumn,
+  getNextKanbanOrder,
+  generateId,
+} from "../../services/db.ts";
+import { KanbanColumn } from "./KanbanColumn.ts";
+import { KanbanCardComponent } from "./KanbanCard.ts";
+
+export class KanbanBoard {
+  private container: HTMLElement;
+  private columns: KanbanColumn[] = [];
+  private cards: KanbanCard[] = [];
+  private draggedCardId: string | null = null;
+
+  constructor(container: HTMLElement) {
+    this.container = container;
+    // Modified: Responsive grid (1 column on mobile, 3 columns on large screens)
+    this.container.className =
+      "grid grid-cols-1 lg:grid-cols-3 gap-4 mx-auto w-full lg:max-w-6xl h-full p-4 lg:p-6 overflow-y-auto lg:overflow-y-hidden";
+    this.render = this.render.bind(this);
+    this.loadCards();
+
+    document.addEventListener("kanban-reload", () => this.loadCards());
+  }
+
+  async loadCards() {
+    this.cards = await getKanbanCards();
+    this.render();
+  }
+
+  render() {
+    this.container.innerHTML = "";
+    this.columns = [];
+
+    const columnIds: ColumnId[] = ["todo", "inprogress", "done"];
+
+    for (const colId of columnIds) {
+      const colCards = this.cards
+        .filter((c) => c.column === colId)
+        .sort((a, b) => a.order - b.order);
+
+      const colEl = document.createElement("div");
+      colEl.className =
+        "flex flex-col w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm max-h-[85vh] lg:max-h-none";
+
+      // Header
+      const header = document.createElement("div");
+      header.className =
+        "flex items-center justify-between px-3 py-2.5 border-b border-[var(--color-border)]";
+      header.innerHTML = `
+        <span class="text-xs font-semibold uppercase tracking-wider text-text-secondary font-secondary">
+          ${COLUMN_LABELS[colId]}
+        </span>
+        <span class="text-xs text-text-muted">${colCards.length}</span>
+      `;
+      colEl.appendChild(header);
+
+      // Cards container (droppable)
+      const cardsContainer = document.createElement("div");
+      cardsContainer.className =
+        "flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px]";
+      cardsContainer.dataset.column = colId;
+
+      // Drop zone events
+      cardsContainer.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        cardsContainer.classList.add(
+          "bg-[var(--color-surface-raised)]",
+          "border-[var(--color-accent-subtle)]",
+        );
+      });
+
+      cardsContainer.addEventListener("dragleave", () => {
+        cardsContainer.classList.remove(
+          "bg-[var(--color-surface-raised)]",
+          "border-[var(--color-accent-subtle)]",
+        );
+      });
+
+      cardsContainer.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        cardsContainer.classList.remove(
+          "bg-[var(--color-surface-raised)]",
+          "border-[var(--color-accent-subtle)]",
+        );
+        const cardId = e.dataTransfer?.getData("text/plain");
+        if (!cardId) return;
+        const order = await getNextKanbanOrder(colId);
+        await updateKanbanCardColumn(cardId, colId, order);
+        this.loadCards();
+      });
+
+      // Render cards
+      for (const card of colCards) {
+        const cardComp = new KanbanCardComponent(card, {
+          onDelete: async (id) => {
+            await deleteKanbanCard(id);
+            this.loadCards();
+          },
+          onEdit: async (updated) => {
+            await saveKanbanCard(updated);
+            this.loadCards();
+          },
+        });
+        cardsContainer.appendChild(cardComp.render());
+      }
+
+      colEl.appendChild(cardsContainer);
+
+      // Add card button
+      const addBtn = document.createElement("button");
+      addBtn.className =
+        "flex items-center gap-1.5 px-3 py-2 text-xs text-text-muted hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-raised)] transition-colors border-t border-[var(--color-border)]";
+      addBtn.innerHTML = '<span class="text-sm leading-none">+</span> Add Card';
+      addBtn.addEventListener("click", () => this.addCard(colId));
+      colEl.appendChild(addBtn);
+
+      this.container.appendChild(colEl);
+      this.columns.push(new KanbanColumn(colEl, colId));
+    }
+  }
+
+  private async addCard(column: ColumnId) {
+    const order = await getNextKanbanOrder(column);
+    const card: KanbanCard = {
+      id: generateId(),
+      title: "New Card",
+      description: "",
+      column,
+      order,
+      createdAt: Date.now(),
+    };
+    await saveKanbanCard(card);
+    this.loadCards();
+  }
+}

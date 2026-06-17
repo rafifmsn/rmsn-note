@@ -1,0 +1,356 @@
+---
+/**
+ * EditorPanel — wraps Editor + Preview with a resizable 50/50 split.
+ * Optimized for mobile to default to a single-pane viewport.
+ */
+---
+
+<div id="editor-panel" class="flex h-full w-full overflow-hidden">
+  <div 
+    id="editor-container" 
+    class="overflow-hidden min-w-0 h-full border-r border-(--color-editor-border)" 
+    style="width: var(--editor-ratio, 50%); flex: 0 0 auto;"
+  >
+  </div>
+
+  <div 
+    id="resize-handle" 
+    class="hidden md:block w-1 cursor-col-resize bg-transparent hover:bg-text-muted active:bg-text-primary transition-colors shrink-0 relative z-10" 
+    title="Drag to resize"
+  ></div>
+
+  <div 
+    id="preview-container" 
+    class="preview-side min-w-0 bg-(--color-preview-bg) overflow-x-auto"
+    style="width: calc(100% - var(--editor-ratio, 50%) - 4px); flex: 0 0 auto;"
+  >
+    <div class="flex items-center justify-center h-full text-text-muted text-sm unique-empty-msg">
+      <p>Start typing to see the preview</p>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  /* 1. Base Workspace Theme Configuration */
+  #editor-container,
+  #editor-container [class*="editor"],
+  #editor-container [class*="cm-"] {
+    background-color: #08080B !important;
+    color: #f8f8f2 !important;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+  }
+
+  /* 2. Unified High-Contrast Active Line + Gutter Shading */
+  #editor-container [class*="activeLine"],
+  #editor-container [class*="active-line"] {
+    background-color: rgba(255, 255, 255, 0.04) !important; 
+  }
+
+  #editor-container [class*="activeLineGutter"] {
+    color: #f1fa8c !important; 
+    background-color: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  /* Standard Line numbers rail alignment */
+  #editor-container [class*="gutter"],
+  #editor-container [class*="line-number"] {
+    color: #52525b !important; 
+    background-color: #08080B !important;
+    border-right: 1px solid #1c1c1f !important;
+  }
+
+  /* Bright Green Caret Cursor */
+  #editor-container [class*="cursor"] {
+    border-left: 2px solid #50fa7b !important;
+  }
+
+  /* Text Selection Highlight Block */
+  #editor-container ::selection,
+  #editor-container [class*="selectionBackground"] {
+    background-color: #27272a !important;
+  }
+
+  /* ── Token Formatting ── */
+  #editor-container [class*="keyword"],
+  #editor-container [class*="token-keyword"] { color: #ff79c6 !important; font-weight: 600 !important; }
+  #editor-container [class*="function"],
+  #editor-container [class*="token-function"],
+  #editor-container [class*="def"] { color: #50fa7b !important; }
+  #editor-container [class*="string"],
+  #editor-container [class*="token-string"] { color: #f1fa8c !important; }
+  #editor-container [class*="comment"],
+  #editor-container [class*="token-comment"] { color: #7982a9 !important; font-style: italic !important; }
+  #editor-container [class*="variable"],
+  #editor-container [class*="token-variable"],
+  #editor-container [class*="property"] { color: #8be9fd !important; }
+  #editor-container [class*="number"],
+  #editor-container [class*="token-number"] { color: #ffb86c !important; }
+
+  /* ── Preview Container Reset Overrides ── */
+  #preview-container {
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    display: block !important;
+  }
+
+  /* ── Responsive LaTeX Math Typesetting ── */
+  /* Force the block container to fit the parent exactly and handle horizontal overflow */
+  .preview-side .katex-display {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important; /* Hide vertical scrollbars strictly */
+    box-sizing: border-box !important;
+    -webkit-overflow-scrolling: touch; /* Smooth touch swipe deceleration on iOS */
+    padding: 16px 8px !important; /* Extra padding ensures tall symbols/accents are not clipped */
+    margin: 1.5em 0 !important;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-text-muted, #52525b) transparent;
+    text-align: center !important; /* Centers math items elegantly when they fit the container width */
+  }
+
+  /* Force the mathematical element to expand to its full natural rendering width.
+     This prevents shrinking or wrapping and cleanly triggers the horizontal scrollbar
+     on the parent wrapper! */
+  .preview-side .katex-display > .katex {
+    display: inline-block !important; /* Refactored to inline-block for maximum browser calculation accuracy */
+    margin: 0 auto !important; 
+    max-width: none !important; /* Overrides standard parent limits */
+    width: max-content !important; /* Force full natural width calculation */
+    box-sizing: border-box !important;
+    text-align: left !important; /* Ensures nested sub-math blocks render correctly from start alignment */
+  }
+
+  /* Prevents standard inline LaTeX elements from stretching page layouts */
+  .preview-side .katex {
+    max-width: 100% !important;
+  }
+
+  /* Subtle Custom Scrollbar for scrolling block formulas */
+  .preview-side .katex-display::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .preview-side .katex-display::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .preview-side .katex-display::-webkit-scrollbar-thumb {
+    background-color: var(--color-text-muted, #52525b);
+    border-radius: 4px;
+  }
+</style>
+
+<script>
+import { Editor } from './Editor.ts';
+import { Preview } from './Preview.ts';
+import { getFile, saveFile } from '../../services/db.ts';
+
+let currentFileId: string | null = null;
+let currentContent = ""; // Track active file content inside memory to re-trigger rendering cycles seamlessly
+let editor: Editor | null = null;
+let preview: Preview | null = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+let isPreviewVisible = true;
+const SPLIT_KEY = 'rmsn-editor-split';
+
+function updateLayoutWidths() {
+  const editorContainer = document.getElementById('editor-container');
+  const previewContainer = document.getElementById('preview-container');
+  const handle = document.getElementById('resize-handle');
+  const btn = document.getElementById('btn-toggle-preview');
+  
+  if (!editorContainer || !previewContainer || !handle) return;
+
+  const isMobile = window.innerWidth < 768;
+
+  if (isMobile) {
+    // Mobile Viewport Handling
+    if (!isPreviewVisible) {
+      // Show ONLY the Editor pane, collapse Preview entirely
+      editorContainer.style.setProperty('width', '100%', 'important');
+      editorContainer.style.setProperty('border-right', 'none', 'important');
+      editorContainer.style.removeProperty('visibility');
+      editorContainer.style.removeProperty('display');
+      
+      previewContainer.style.setProperty('display', 'none', 'important');
+      previewContainer.style.setProperty('width', '0px', 'important');
+      handle.style.setProperty('display', 'none', 'important');
+      if (btn) btn.style.opacity = '0.4';
+    } else {
+      // Show ONLY the Preview pane, collapse Editor entirely
+      // Collapsing width to 0 and hiding visibility preserves the editor rendering buffer
+      editorContainer.style.setProperty('width', '0px', 'important');
+      editorContainer.style.setProperty('border-right', 'none', 'important');
+      editorContainer.style.setProperty('visibility', 'hidden', 'important');
+      
+      previewContainer.style.setProperty('display', 'block', 'important');
+      previewContainer.style.setProperty('width', '100%', 'important');
+      handle.style.setProperty('display', 'none', 'important');
+      if (btn) btn.style.opacity = '1';
+    }
+  } else {
+    // Desktop Viewport Handling
+    editorContainer.style.removeProperty('display');
+    editorContainer.style.removeProperty('visibility');
+    previewContainer.style.removeProperty('display');
+
+    if (!isPreviewVisible) {
+      editorContainer.style.setProperty('width', '100%', 'important');
+      editorContainer.style.setProperty('border-right', 'none', 'important');
+      previewContainer.style.setProperty('display', 'none', 'important');
+      handle.style.setProperty('display', 'none', 'important');
+      if (btn) btn.style.opacity = '0.4';
+    } else {
+      const saved = localStorage.getItem(SPLIT_KEY);
+      const ratio = saved ? saved + '%' : '50%';
+      
+      document.documentElement.style.setProperty('--editor-ratio', ratio);
+      editorContainer.style.width = ratio;
+      previewContainer.style.width = `calc(100% - ${ratio} - 4px)`;
+      
+      editorContainer.style.removeProperty('border-right');
+      previewContainer.style.setProperty('display', 'block', 'important');
+      handle.style.display = '';
+      if (btn) btn.style.opacity = '1';
+    }
+  }
+
+  // Dispatch a synthetic window resize event to force CodeMirror layout recalculation
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+  }, 50);
+}
+
+function restoreSplitRatio() {
+  const saved = localStorage.getItem(SPLIT_KEY);
+  if (saved) {
+    document.documentElement.style.setProperty('--editor-ratio', saved + '%');
+  }
+  updateLayoutWidths();
+}
+
+function setupResize() {
+  const handle = document.getElementById('resize-handle');
+  const editorContainer = document.getElementById('editor-container');
+  const previewContainer = document.getElementById('preview-container');
+  const panel = document.getElementById('editor-panel');
+  if (!handle || !editorContainer || !previewContainer || !panel) return;
+
+  let isDragging = false;
+
+  handle.addEventListener('mousedown', (e) => {
+    if (!isPreviewVisible || window.innerWidth < 768) return;
+    isDragging = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging || !isPreviewVisible || window.innerWidth < 768) return;
+    const rect = panel.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = Math.max(20, Math.min(80, (x / rect.width) * 100));
+    
+    const ratioStr = pct + '%';
+    document.documentElement.style.setProperty('--editor-ratio', ratioStr);
+    editorContainer.style.width = ratioStr;
+    previewContainer.style.width = `calc(100% - ${ratioStr} - 4px)`;
+    localStorage.setItem(SPLIT_KEY, String(Math.round(pct)));
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+}
+
+document.addEventListener('file-selected', (async (e: Event) => {
+  const customEvent = e as CustomEvent;
+  const fileId = customEvent.detail.fileId;
+  if (fileId) await loadFile(fileId);
+}) as EventListener);
+
+document.addEventListener('file-created', (async (e: Event) => {
+  const customEvent = e as CustomEvent;
+  const fileId = customEvent.detail.fileId;
+  if (fileId) await loadFile(fileId);
+}) as EventListener);
+
+async function loadFile(fileId: string) {
+  const file = await getFile(fileId);
+  if (!file) return;
+  currentFileId = fileId;
+  currentContent = file.content; // Store loaded content
+  
+  const emptyMsg = document.querySelector('.unique-empty-msg');
+  if (emptyMsg) emptyMsg.remove();
+
+  editor?.setContent(file.content);
+  preview?.update(file.content);
+}
+
+function init() {
+  const editorContainer = document.getElementById('editor-container');
+  const previewContainer = document.getElementById('preview-container');
+  if (!editorContainer || !previewContainer) return;
+
+  preview = new Preview(previewContainer);
+  editor = new Editor(editorContainer, '');
+
+  // 📱 Mobile setup: Default to keeping preview hidden so the editor opens full screen
+  if (window.innerWidth < 768) {
+    isPreviewVisible = false;
+  }
+
+  restoreSplitRatio();
+  setupResize();
+
+  const toggleBtn = document.getElementById('btn-toggle-preview');
+  toggleBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    isPreviewVisible = !isPreviewVisible;
+    updateLayoutWidths();
+
+    // When the preview transitions to visible, re-render the content inside the newly sized container block
+    if (isPreviewVisible && preview && currentContent) {
+      preview.update(currentContent);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    updateLayoutWidths();
+  });
+
+  editor.setOnChange((content) => {
+    currentContent = content; // Keep content in-sync during live edits
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      preview?.update(content);
+    }, 300);
+  });
+
+  editor.setOnSave(async (content) => {
+    if (!currentFileId) return;
+    const file = await getFile(currentFileId);
+    if (file) {
+      file.content = content;
+      await saveFile(file);
+    }
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>

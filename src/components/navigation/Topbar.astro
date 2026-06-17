@@ -1,0 +1,193 @@
+---
+/**
+ * Topbar — app logo, sidebar toggle, preview toggle, export dropdown.
+ */
+---
+
+<div
+  id="topbar"
+  class="flex items-center justify-between h-(--topbar-height) px-4 border-b border-(--topbar-border) bg-(--topbar-bg)"
+>
+  <div class="flex items-center gap-2">
+    <button
+      id="btn-toggle-sidebar"
+      class="icon-btn-2 w-7! h-7!"
+      aria-label="Toggle sidebar"
+      title="Toggle sidebar"
+    >
+      <!-- The SVG icon will be enforced by our DOM enforcer script below -->
+    </button>
+    <a href="/" id="logo-link" class="text-sm font-semibold text-text-primary no-underline font-secondary tracking-tight">
+      RMSN Note
+    </a>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <button
+      id="btn-toggle-preview"
+      class="icon-btn-2 w-7! h-7! hidden"
+      aria-label="Toggle preview"
+      title="Toggle preview"
+    >
+      <span class="text-sm leading-none">👁</span>
+    </button>
+
+    <div class="relative hidden" id="export-container">
+      <button
+        id="btn-export"
+        class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium bg-(--btn-secondary-bg) text-(--btn-secondary-text) border border-(--btn-secondary-border) hover:bg-(--btn-secondary-hover-bg) transition-colors cursor-pointer"
+      >
+        Export
+        <span class="text-xs leading-none opacity-60">▾</span>
+      </button>
+
+      <div
+        id="export-dropdown"
+        class="hidden absolute right-0 top-full mt-1 z-40 min-w-50 rounded-lg border border-border bg-surface-overlay p-1 shadow-lg fade-in"
+      >
+        <button class="export-option w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs text-text-secondary hover:bg-surface-raised hover:text-text-primary transition-colors cursor-pointer" data-action="md">
+          <span class="text-sm">📄</span> Download as Markdown
+        </button>
+        <button class="export-option w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs text-text-secondary hover:bg-surface-raised hover:text-text-primary transition-colors cursor-pointer" data-action="pdf">
+          <span class="text-sm">📕</span> Download as PDF
+        </button>
+        <div class="h-px bg-border my-1"></div>
+        <button class="export-option w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs text-text-secondary hover:bg-surface-raised hover:text-text-primary transition-colors cursor-pointer" data-action="zip">
+          <span class="text-sm">📦</span> Export All (ZIP)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+import { getAllFiles, getAllAssets, getFile } from '../../services/db.ts';
+import { downloadAsMarkdown, downloadAsPDF, exportAllAsZip } from '../../utils/export.ts';
+
+// Sidebar toggle button SVG enforcer and state synchronizer
+function enforceSidebarButtonIcon() {
+  const toggleBtn = document.getElementById('btn-toggle-sidebar');
+  if (!toggleBtn) return;
+
+  const cleanSVGMarkup = `
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      stroke-width="2.5" 
+      stroke-linecap="round" 
+      stroke-linejoin="round" 
+      style="width: 15px !important; height: 15px !important; display: block !important; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;"
+    >
+      <path d="m15 18-6-6 6-6"/>
+    </svg>
+  `;
+
+  // If the button doesn't currently contain our custom SVG, inject it
+  if (!toggleBtn.querySelector('svg path')) {
+    toggleBtn.innerHTML = cleanSVGMarkup;
+  }
+
+  // Handle runtime rotation state based on active class assignments
+  const svgEl = toggleBtn.querySelector('svg') as HTMLElement | null;
+  if (svgEl) {
+    if (toggleBtn.classList.contains('is-collapsed')) {
+      // Flip the arrow to look right (›) when the sidebar is closed
+      svgEl.style.setProperty('transform', 'rotate(180deg)', 'important');
+    } else {
+      // Keep it facing left (‹) when the sidebar is open
+      svgEl.style.setProperty('transform', 'rotate(0deg)', 'important');
+    }
+  }
+}
+
+// Run immediately on page load
+enforceSidebarButtonIcon();
+
+// Listen for updates from other application panel events
+document.addEventListener('astro:page-load', enforceSidebarButtonIcon);
+document.addEventListener('file-selected', () => setTimeout(enforceSidebarButtonIcon, 10));
+
+// Watch the button itself for external markup overrides
+const sidebarBtnElement = document.getElementById('btn-toggle-sidebar');
+if (sidebarBtnElement) {
+  const btnObserver = new MutationObserver(() => {
+    enforceSidebarButtonIcon();
+  });
+  // Watch child lists and classes for state updates
+  btnObserver.observe(sidebarBtnElement, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+}
+
+// Element selectors
+const previewBtn = document.getElementById('btn-toggle-preview');
+const exportContainer = document.getElementById('export-container');
+const exportBtn = document.getElementById('btn-export');
+const dropdown = document.getElementById('export-dropdown');
+
+// The Sync Watchdog for the export container
+if (previewBtn && exportContainer) {
+  const observer = new MutationObserver(() => {
+    if (previewBtn.classList.contains('hidden')) {
+      exportContainer.classList.add('hidden');
+      dropdown?.classList.add('hidden'); 
+    } else {
+      exportContainer.classList.remove('hidden');
+    }
+  });
+  observer.observe(previewBtn, { attributes: true, attributeFilter: ['class'] });
+}
+
+// Export dropdown display toggle
+exportBtn?.addEventListener('click', () => {
+  dropdown?.classList.toggle('hidden');
+});
+
+document.addEventListener('click', (e) => {
+  if (dropdown && !dropdown.classList.contains('hidden') && !exportBtn?.contains(e.target as Node)) {
+    dropdown.classList.add('hidden');
+  }
+});
+
+// Export actions router mapping
+document.querySelectorAll('.export-option').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    dropdown?.classList.add('hidden');
+    const action = (btn as HTMLElement).dataset.action;
+
+    if (action === 'zip') {
+      const files = await getAllFiles();
+      const assets = await getAllAssets();
+      await exportAllAsZip(files, assets);
+      return;
+    }
+
+    const fileId = (window as any).__activeFileId;
+    if (!fileId) return;
+    const file = await getFile(fileId);
+    if (!file) return;
+
+    if (action === 'md') {
+      downloadAsMarkdown(file);
+    } else if (action === 'pdf') {
+      const previewEl = document.querySelector('#preview-container');
+      if (previewEl) {
+        await downloadAsPDF(previewEl as HTMLElement, file.name);
+      }
+    }
+  });
+});
+
+// Sidebar layout state dispatcher with active class tracking
+sidebarBtnElement?.addEventListener('click', () => {
+  // Toggle our rotation layout anchor class locally
+  sidebarBtnElement.classList.toggle('is-collapsed');
+  
+  // Fire the original toggle event to update your app panels
+  document.dispatchEvent(new CustomEvent('toggle-sidebar'));
+});
+
+document.getElementById('btn-toggle-preview')?.addEventListener('click', () => {
+  document.dispatchEvent(new CustomEvent('toggle-preview'));
+});
+</script>
