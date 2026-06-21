@@ -10,6 +10,7 @@
 
   --color-surface-raised: #111113;
   --color-surface-overlay: #18181b;
+  --color-selection: #27272a;
 
   --color-text-primary: #fafafa;
   --color-text-secondary: #a1a1aa;
@@ -80,6 +81,19 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-text-muted);
   }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  textarea {
+    color-scheme: dark;
+  }
+  textarea::-webkit-resizer {
+    border-style: solid;
+    border-color: transparent var(--color-border) var(--color-border)
+      transparent;
+    background-color: transparent;
+  }
 }
 
 @layer components {
@@ -134,40 +148,59 @@
     color: var(--color-text-muted);
   }
 
-  .md-preview ul {
-    list-style-type: disc !important;
+  .md-preview ul,
+  .md-preview ol {
     margin-top: 12px !important;
     margin-bottom: 12px !important;
     padding-left: 24px !important;
     display: block !important;
   }
 
+  .md-preview ul {
+    list-style-type: disc !important;
+  }
+
   .md-preview ol {
     list-style-type: decimal !important;
-    margin-top: 12px !important;
-    margin-bottom: 12px !important;
-    padding-left: 24px !important;
-    display: block !important;
   }
 
   .md-preview li {
     display: list-item !important;
     margin-bottom: 4px !important;
+    margin-top: 4px !important;
   }
 
-  /* Ensure child elements inside ordered lists behave natively */
-  .md-preview ul ul,
-  .md-preview ol ul {
-    list-style-type: circle !important;
+  /* Base Lists Configuration */
+  .md-preview ul,
+  .md-preview ol {
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+    padding-left: 28px !important; /* Slightly increased for prominent spacing */
+    display: block !important;
+  }
+
+  /* Tree-nesting indentation logic */
+  .md-preview li ul,
+  .md-preview li ol {
+    padding-left: 24px !important; /* Guarantees strict nesting indentation */
     margin-top: 4px !important;
     margin-bottom: 4px !important;
   }
 
-  .md-preview ul ol,
-  .md-preview ol ol {
-    list-style-type: lower-alpha !important;
-    margin-top: 4px !important;
-    margin-bottom: 4px !important;
+  /* Task Lists (Checkboxes) Alignment */
+  .md-preview .task-list-item {
+    list-style-type: none !important;
+    margin-left: 0 !important;
+    display: block !important;
+    position: relative;
+  }
+
+  .md-preview .task-list-item input[type="checkbox"] {
+    margin-right: 10px !important; /* Uniform gap between box and string text */
+    vertical-align: middle !important;
+    position: relative;
+    top: -1px;
+    flex-shrink: 0 !important;
   }
 
   /* Code Highlighter Structural Normalization Blocks */
@@ -242,30 +275,6 @@
     color: var(--syntax-number) !important;
   }
 
-  .md-preview .mermaid-block {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    background: transparent !important; /* Blends perfectly into your main preview window */
-    border: none !important; /* Destroys the hard card border lines */
-    box-shadow: none !important;
-    padding: 0 !important; /* Strip out container padding to eliminate layout gaps */
-    margin: 1.5rem 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow: visible !important;
-  }
-
-  /* Force the SVG chart layout to scale to 100% container width 
-     and automatically compute the exact height proportionally with zero gaps */
-  .md-preview .mermaid-block svg {
-    width: 100% !important;
-    height: auto !important;
-    max-width: 100% !important;
-    background: transparent !important;
-    display: block !important;
-  }
-
   /* Interactive Components (Tables, Tasks, Lists) */
   .md-preview table {
     display: inline-block !important;
@@ -290,25 +299,10 @@
     color: var(--color-text-primary);
     font-weight: 600;
   }
-  .md-preview ul,
-  .md-preview ol {
-    margin: 0.75em 0;
-    padding-left: 1.5em;
-  }
-  .md-preview li {
-    margin: 0.25em 0;
-  }
   .md-preview hr {
     border: none;
     border-top: 1px solid var(--color-border);
     margin: 1.5em 0;
-  }
-  .md-preview .task-list-item {
-    list-style: none;
-    margin-left: -1.5em;
-  }
-  .md-preview .task-list-item input[type="checkbox"] {
-    margin-right: 8px;
   }
   .md-preview img {
     max-width: 100%;
@@ -323,6 +317,30 @@
   .md-preview .mermaid svg {
     max-width: 100%;
     height: auto;
+    background: transparent !important;
+  }
+
+  .md-preview .mermaid-block,
+  .md-preview div:has(> .mermaid-block),
+  .md-preview pre:has(> .mermaid-block) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin: 1.5rem 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important; /* Adds smooth scrollbar if wide */
+  }
+
+  /* Natural Proportional Sizing */
+  .md-preview .mermaid-block svg {
+    display: block !important;
+    margin: 0 auto !important; /* Centers chart */
+    width: auto !important; /* Keeps native size */
+    max-width: 100% !important; /* Safety floor constraint */
+    height: auto !important;
     background: transparent !important;
   }
 

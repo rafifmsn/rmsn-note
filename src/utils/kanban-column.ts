@@ -2,7 +2,7 @@
  * KanbanColumn — droppable column wrapper.
  */
 
-import type { ColumnId } from "../../services/db.ts";
+import type { ColumnId } from "../services/db";
 
 export class KanbanColumn {
   public element: HTMLElement;

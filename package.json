@@ -14,15 +14,15 @@
     "@astrojs/sitemap": "^3.7.2",
     "@codemirror/lang-markdown": "^6.3.0",
     "@codemirror/theme-one-dark": "^6.1.0",
+    "@lucide/astro": "^1.21.0",
     "@tailwindcss/vite": "^4.1.18",
     "astro": "^6.1.5",
     "codemirror": "^6.0.1",
     "dexie": "^4.0.11",
     "file-saver": "^2.0.5",
-    "html2pdf.js": "^0.10.3",
-    "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "mermaid": "^11.4.0",
+    "qrcode": "^1.5.4",
     "rehype-katex": "^7.0.1",
     "rehype-stringify": "^10.0.1",
     "remark-gfm": "^4.0.0",
@@ -38,6 +38,6 @@
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.7",
-    "@types/html2pdf.js": "^0.10.0"
+    "@types/qrcode": "^1.5.6"
   }
 }

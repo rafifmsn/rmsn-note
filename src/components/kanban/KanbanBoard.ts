@@ -2,8 +2,8 @@
  * KanbanBoard — column layout with native HTML5 drag-and-drop.
  */
 
-import type { KanbanCard, ColumnId } from "../../services/db.ts";
-import { COLUMN_LABELS } from "../../services/db.ts";
+import type { KanbanCard, ColumnId } from "../../services/db";
+import { COLUMN_LABELS } from "../../services/db";
 import {
   getKanbanCards,
   saveKanbanCard,
@@ -11,19 +11,19 @@ import {
   updateKanbanCardColumn,
   getNextKanbanOrder,
   generateId,
-} from "../../services/db.ts";
-import { KanbanColumn } from "./KanbanColumn.ts";
-import { KanbanCardComponent } from "./KanbanCard.ts";
+} from "../../services/db";
+import { KanbanColumn } from "../../utils/kanban-column";
+import { KanbanCardComponent } from "./KanbanCard";
 
 export class KanbanBoard {
   private container: HTMLElement;
   private columns: KanbanColumn[] = [];
   private cards: KanbanCard[] = [];
   private draggedCardId: string | null = null;
+  private _activeTabId: string = "";
 
   constructor(container: HTMLElement) {
     this.container = container;
-    // Modified: Responsive grid (1 column on mobile, 3 columns on large screens)
     this.container.className =
       "grid grid-cols-1 lg:grid-cols-3 gap-4 mx-auto w-full lg:max-w-6xl h-full p-4 lg:p-6 overflow-y-auto lg:overflow-y-hidden";
     this.render = this.render.bind(this);
@@ -32,8 +32,13 @@ export class KanbanBoard {
     document.addEventListener("kanban-reload", () => this.loadCards());
   }
 
+  private getActiveTabId(): string {
+    return (window as any).__activeTabId || "";
+  }
+
   async loadCards() {
-    this.cards = await getKanbanCards();
+    this._activeTabId = this.getActiveTabId();
+    this.cards = await getKanbanCards(this._activeTabId || undefined);
     this.render();
   }
 
@@ -130,13 +135,17 @@ export class KanbanBoard {
   }
 
   private async addCard(column: ColumnId) {
-    const order = await getNextKanbanOrder(column);
+    const order = await getNextKanbanOrder(
+      column,
+      this._activeTabId || undefined,
+    );
     const card: KanbanCard = {
       id: generateId(),
       title: "New Card",
       description: "",
       column,
       order,
+      tabId: this._activeTabId || "",
       createdAt: Date.now(),
     };
     await saveKanbanCard(card);

@@ -3,7 +3,7 @@
  * Uses native HTML5 Drag & Drop API + touch events for mobile.
  */
 
-import type { KanbanCard } from "../../services/db.ts";
+import type { KanbanCard } from "../../services/db";
 
 interface CardCallbacks {
   onDelete: (id: string) => void;
@@ -135,16 +135,16 @@ export class KanbanCardComponent {
     const titleEl = document.createElement("div");
     titleEl.className = "text-sm font-medium text-[var(--color-text-primary)]";
     titleEl.textContent = this.card.title || "Untitled";
-    titleEl.dataset.cardText = "true"; // 🔍 Add this flag
+    titleEl.dataset.cardText = "true";
     el.appendChild(titleEl);
 
     // ── Description ──
     if (this.card.description) {
       const descEl = document.createElement("div");
       descEl.className =
-        "text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2";
+        "text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2 whitespace-pre-wrap";
       descEl.textContent = this.card.description;
-      descEl.dataset.cardText = "true"; // 🔍 Add this flag
+      descEl.dataset.cardText = "true";
       el.appendChild(descEl);
     }
 
@@ -184,10 +184,11 @@ export class KanbanCardComponent {
       titleInput.value = this.card.title;
       titleInput.placeholder = "Card title";
 
-      // Description textarea
+      // Description textarea — resizable vertically with max-height
       const descInput = document.createElement("textarea");
       descInput.className =
-        "w-full rounded border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1 text-xs text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-text-muted)] resize-none";
+        "w-full min-h-[60px] rounded border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1 text-xs text-[var(--color-text-secondary)] outline-none focus:border-[var(--color-text-muted)] resize-y";
+      descInput.style.maxHeight = "160px";
       descInput.value = this.card.description || "";
       descInput.placeholder = "Description (optional)";
       descInput.rows = 2;
@@ -202,9 +203,11 @@ export class KanbanCardComponent {
       btnRow.className = "flex items-center gap-2";
 
       const deleteBtn = document.createElement("button");
+      const trashIcon =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
       deleteBtn.className =
         "rounded px-2 py-1 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle)] transition-colors flex items-center gap-1 cursor-pointer";
-      deleteBtn.innerHTML = '<span class="text-xs">🗑</span> Delete';
+      deleteBtn.innerHTML = trashIcon + '<span class="-mb-0.5"> Delete</span>';
       deleteBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         this.callbacks.onDelete(this.card.id);

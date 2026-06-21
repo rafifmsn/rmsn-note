@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-import type { TextFile, AttachedAsset } from "../services/db.ts";
+import type { TextFile, AttachedAsset } from "../services/db";
 
 export function downloadAsMarkdown(file: TextFile): void {
   const blob = new Blob([file.content], {
@@ -331,4 +331,25 @@ export async function exportAllAsZip(
 
   const blob = await zip.generateAsync({ type: "blob" });
   saveAs(blob, "editor-workspace-export.zip");
+}
+
+export async function exportTabAsZip(
+  files: TextFile[],
+  assets: AttachedAsset[],
+  tabName: string,
+): Promise<void> {
+  const zip = new JSZip();
+  const safeName = tabName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+  const documentsFolder = zip.folder(`${safeName}/documents`);
+  const attachmentsFolder = zip.folder(`${safeName}/attachments`);
+
+  for (const file of files) {
+    documentsFolder?.file(file.name, file.content);
+  }
+  for (const asset of assets) {
+    attachmentsFolder?.file(asset.name, asset.data);
+  }
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  saveAs(blob, `${safeName}-export.zip`);
 }

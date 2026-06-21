@@ -1,39 +1,46 @@
 ---
 /**
- * Sidebar — action buttons on top, file list grouped by type below.
+ * Sidebar — action buttons on top, tab bar, file list grouped by type below.
  */
+
+import { SquarePen, Trash2, Plus, Upload, LayoutDashboard } from "@lucide/astro";
 ---
 
 <aside
   id="sidebar"
-  class="w-(--sidebar-width) min-w-(--sidebar-width) h-full bg-(--sidebar-bg) border-r border-border flex flex-col overflow-(--sidebar-width)idden"
+  class="w-(--sidebar-width) min-w-(--sidebar-width) h-full bg-(--sidebar-bg) border-r border-border flex flex-col overflow-hidden"
 >
   <!-- Action buttons at the top -->
-  <div class="flex items-center gap-1 p-2 border-b border-border">
-    <button
-      id="sidebar-kanban-btn"
-      class="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium bg-(--btn-secondary-bg) text-(--btn-secondary-text) border border-(--btn-secondary-border) hover:bg-(--btn-secondary-hover-bg) transition-colors cursor-pointer"
-      title="Kanban board"
-    >
-      <span class="text-sm leading-none">☰</span>
-      <span>Kanban</span>
-    </button>
+  <div class="flex flex-wrap items-center gap-1 p-2 border-b border-border">
     <button
       id="sidebar-new-file-btn"
-      class="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium bg-(--btn-secondary-bg) text-(--btn-secondary-text) border border-(--btn-secondary-border) hover:bg-(--btn-secondary-hover-bg) transition-colors cursor-pointer"
+      class="flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium bg-(--btn-primary-bg) text-(--btn-primary-text) hover:bg-(--btn-primary-hover-bg) transition-colors cursor-pointer"
       title="New file"
     >
-      <span class="text-sm leading-none">+</span>
-      <span>New</span>
+      <Plus size={12} />
+      <span class="-mb-0.5">New</span>
     </button>
     <button
       id="sidebar-upload-btn"
       class="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium bg-(--btn-secondary-bg) text-(--btn-secondary-text) border border-(--btn-secondary-border) hover:bg-(--btn-secondary-hover-bg) transition-colors cursor-pointer"
       title="Upload files"
     >
-      <span class="text-sm leading-none">↑</span>
-      <span>Upload</span>
+      <Upload size={12} />
+      <span class="-mb-0.5">Upload</span>
     </button>
+    <button
+      id="sidebar-kanban-btn"
+      class="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium bg-(--btn-secondary-bg) text-(--btn-secondary-text) border border-(--btn-secondary-border) hover:bg-(--btn-secondary-hover-bg) transition-colors cursor-pointer"
+      title="Kanban board"
+    >
+      <LayoutDashboard size={12} />
+      <span class="-mb-0.5">Kanban</span>
+    </button>
+  </div>
+
+  <!-- Tab bar -->
+  <div id="sidebar-tabs" class="flex border-b border-border px-1 py-1 gap-0.5">
+    <!-- Tabs rendered by JS -->
   </div>
 
   <!-- File list container (populated by JS) -->
@@ -42,7 +49,25 @@
       <p>No files yet</p>
     </div>
   </div>
+
+  <!-- Delete all button at the bottom -->
+  <div class="border-t border-border p-2">
+    <button
+      id="sidebar-delete-all-btn"
+      class="flex items-center justify-center gap-1.5 h-7 w-full rounded-md text-xs font-medium text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors cursor-pointer"
+      title="Delete all files and assets in current tab"
+    >
+      <Trash2 size={14} />
+      <span>Delete All</span>
+    </button>
+  </div>
 </aside>
+
+<!-- Hidden Blueprints for Dynamic Client Injection -->
+<div id="sidebar-icon-blueprints" class="hidden">
+  <div id="blueprint-edit"><SquarePen size={14} /></div>
+  <div id="blueprint-trash"><Trash2 size={14} /></div>
+</div>
 
 <script>
 import {
@@ -53,10 +78,17 @@ import {
   getAsset,
   saveFile,
   generateId,
-} from '../../services/db.ts';
-import { LightboxModal } from '../modals/LightboxModal.ts';
-import { ConfirmTooltip } from '../ui/ConfirmTooltip.ts';
-import { FileUploadModal } from '../modals/FileUploadModal.ts';
+  renameFile,
+  renameAsset,
+  deleteAllFiles,
+  deleteAllAssets,
+  getTabs,
+  initDefaultTabs,
+  type Tab,
+} from '../../services/db';
+import { LightboxModal } from '../modals/LightboxModal';
+import { ConfirmTooltip } from '../ui/ConfirmTooltip';
+import { FileUploadModal } from '../modals/FileUploadModal';
 
 interface GroupedItem {
   id: string;
@@ -65,9 +97,18 @@ interface GroupedItem {
 }
 
 let activeFileId: string | null = null;
+let activeTabId: string | null = null;
+let tabs: Tab[] = [];
+
+const TAB_KEY = 'rmsn-active-tab';
 
 Object.defineProperty(window, '__activeFileId', {
   get: () => activeFileId,
+  configurable: true,
+});
+
+Object.defineProperty(window, '__activeTabId', {
+  get: () => activeTabId,
   configurable: true,
 });
 
@@ -80,9 +121,11 @@ document.getElementById('sidebar-kanban-btn')?.addEventListener('click', () => {
 document.getElementById('sidebar-new-file-btn')?.addEventListener('click', async () => {
   const name = `note-${Date.now()}.md`;
   const id = generateId();
+  const tid = activeTabId || (tabs[0]?.id) || '';
   await saveFile({
-    id, name, content: '', type: 'markdown', updatedAt: Date.now(),
+    id, name, content: '', type: 'markdown', tabId: tid, updatedAt: Date.now(),
   });
+  activeFileId = id;
   document.dispatchEvent(new CustomEvent('file-created', { detail: { fileId: id } }));
   document.dispatchEvent(new CustomEvent('file-list-changed'));
 });
@@ -91,14 +134,74 @@ document.getElementById('sidebar-upload-btn')?.addEventListener('click', () => {
   new FileUploadModal(() => {});
 });
 
+document.getElementById('sidebar-delete-all-btn')?.addEventListener('click', () => {
+  const btn = document.getElementById('sidebar-delete-all-btn')!;
+  const tabName = tabs.find((t) => t.id === activeTabId)?.name || 'this tab';
+  const tooltip = new ConfirmTooltip(btn, {
+    message: `Delete all in "${tabName}"?`,
+    onConfirm: async () => {
+      await deleteAllFiles(activeTabId || undefined);
+      await deleteAllAssets(activeTabId || undefined);
+      activeFileId = null;
+      document.dispatchEvent(new CustomEvent('file-selected', { detail: { fileId: null } }));
+      renderSidebar();
+    },
+    onCancel: () => {},
+  });
+  document.querySelectorAll('[role="tooltip"]').forEach((t) => t.remove());
+  tooltip.show();
+});
+
+// ── Tab management ──
+
+async function initTabs() {
+  tabs = await initDefaultTabs();
+  const saved = localStorage.getItem(TAB_KEY);
+  if (saved && tabs.some((t) => t.id === saved)) {
+    activeTabId = saved;
+  } else {
+    activeTabId = tabs[0]?.id || null;
+  }
+  renderTabs();
+  renderSidebar();
+}
+
+function renderTabs() {
+  const container = document.getElementById('sidebar-tabs');
+  if (!container) return;
+  container.innerHTML = '';
+  for (const tab of tabs) {
+    const btn = document.createElement('button');
+    btn.className = `flex-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer font-medium ${
+      tab.id === activeTabId
+        ? 'bg-(--color-surface-raised) text-(--color-text-primary)'
+        : 'text-(--color-text-muted) hover:text-(--color-text-secondary) hover:bg-(--color-surface-raised)/50'
+    }`;
+    btn.textContent = tab.name;
+    btn.dataset.tabId = tab.id;
+    btn.addEventListener('click', () => {
+      activeTabId = tab.id;
+      localStorage.setItem(TAB_KEY, tab.id);
+      renderTabs();
+      renderSidebar();
+      // Deselect current file when switching tabs
+      if (activeFileId) {
+        activeFileId = null;
+        document.dispatchEvent(new CustomEvent('file-selected', { detail: { fileId: null } }));
+      }
+    });
+    container.appendChild(btn);
+  }
+}
+
 // ── File list rendering ──
 
 async function renderSidebar() {
   const container = document.getElementById('sidebar-file-list');
   if (!container) return;
 
-  const files = await getAllFiles();
-  const assets = await getAllAssets();
+  const files = await getAllFiles(activeTabId || undefined);
+  const assets = await getAllAssets(activeTabId || undefined);
 
   const mdItems: GroupedItem[] = files.map((f) => ({ id: f.id, name: f.name, type: 'markdown' }));
   const imgItems: GroupedItem[] = assets.filter((a) => a.type === 'image').map((a) => ({ id: a.id, name: a.name, type: 'image' }));
@@ -122,19 +225,37 @@ async function renderSidebar() {
     } else {
       for (const item of items) {
         const row = document.createElement('div');
-        row.className = 'flex items-center h-8 px-2 rounded-md text-sm text-[var(--color-text-secondary)] hover:bg-[var(--sidebar-item-hover)] group cursor-pointer transition-colors';
+        row.className = 'flex h-8 px-2 rounded-md text-sm text-[var(--color-text-secondary)] hover:bg-[var(--sidebar-item-hover)] group cursor-pointer transition-colors';
         row.dataset.fileId = item.id;
         row.dataset.fileType = item.type;
 
         const nameSpan = document.createElement('span');
-        nameSpan.className = 'flex-1 truncate text-[13px]';
+        nameSpan.className = 'flex-1 truncate text-[13px] block h-5 leading-5 my-auto pr-1';
         nameSpan.textContent = item.name;
+        nameSpan.setAttribute('data-name-span', '');
         row.appendChild(nameSpan);
 
+        // ── Rename Button Setup ──
+        const renameBtn = document.createElement('button');
+        renameBtn.className = 'icon-btn icon-btn--secondary ml-0.5 transition-opacity lg:opacity-0 lg:group-hover:opacity-100';
+        renameBtn.setAttribute('aria-label', `Rename ${item.name}`);
+
+        const editIcon = document.getElementById('blueprint-edit')?.firstElementChild?.cloneNode(true);
+        if (editIcon) renameBtn.appendChild(editIcon);
+        row.appendChild(renameBtn);
+
+        renameBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startInlineRename(item, row);
+        });
+
+        // ── Trash Button Setup ──
         const trashBtn = document.createElement('button');
-        trashBtn.className = 'icon-btn icon-btn--danger transition-opacity ml-0.5';
-        trashBtn.innerHTML = '<span class="text-xs leading-none">🗑</span>';
+        trashBtn.className = 'icon-btn icon-btn--danger ml-0.5 transition-opacity lg:opacity-0 lg:group-hover:opacity-100';
         trashBtn.setAttribute('aria-label', `Delete ${item.name}`);
+
+        const trashIcon = document.getElementById('blueprint-trash')?.firstElementChild?.cloneNode(true);
+        if (trashIcon) trashBtn.appendChild(trashIcon);
         row.appendChild(trashBtn);
 
         trashBtn.addEventListener('click', (e) => {
@@ -150,7 +271,6 @@ async function renderSidebar() {
         if (item.type === 'markdown') {
           row.addEventListener('click', () => selectFile(item.id));
         } else {
-          // Images and PDFs: clicking the row previews them
           row.addEventListener('click', async () => { await previewAsset(item); });
         }
 
@@ -178,6 +298,10 @@ function selectFile(fileId: string) {
 async function previewAsset(item: GroupedItem) {
   const asset = await getAsset(item.id);
   if (!asset) return;
+  // Update highlight to this asset
+  activeFileId = item.id;
+  renderSidebar();
+
   if (asset.type === 'image') {
     const url = URL.createObjectURL(asset.data);
     new LightboxModal(url, () => URL.revokeObjectURL(url));
@@ -187,7 +311,6 @@ async function previewAsset(item: GroupedItem) {
     const emptyState = document.getElementById('empty-state');
     const editorWrapper = document.getElementById('editor-wrapper');
     if (pdfViewer) {
-      // Activate PDF viewer, hide everything else
       emptyState?.classList.add('hidden');
       editorWrapper?.classList.add('hidden');
       document.getElementById('btn-toggle-preview')?.classList.add('hidden');
@@ -203,6 +326,59 @@ async function previewAsset(item: GroupedItem) {
   }
 }
 
+// ── Inline rename ──
+
+function startInlineRename(item: GroupedItem, row: HTMLElement) {
+  const nameSpan = row.querySelector('[data-name-span]') as HTMLElement;
+  if (!nameSpan) return;
+  const currentName = item.name;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentName;
+  input.className = 'flex-1 min-w-0 px-1 py-0.5 text-[13px] bg-[var(--color-surface)] border border-border rounded outline-none text-[var(--color-text-primary)]';
+  input.setAttribute('data-rename-input', '');
+
+  nameSpan.replaceWith(input);
+  // Prevent row click events from firing while renaming
+  input.addEventListener('mousedown', (e) => e.stopPropagation());
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.focus();
+
+  const dotIndex = currentName.lastIndexOf('.');
+  if (dotIndex > 0) {
+    input.setSelectionRange(0, dotIndex);
+  } else {
+    input.select();
+  }
+
+  const finishRename = async () => {
+    const newName = input.value.trim();
+    if (newName && newName !== currentName) {
+      if (item.type === 'markdown') {
+        await renameFile(item.id, newName);
+      } else {
+        await renameAsset(item.id, newName);
+      }
+      item.name = newName;
+      document.dispatchEvent(new CustomEvent('file-list-changed'));
+    } else {
+      renderSidebar();
+    }
+  };
+
+  input.addEventListener('blur', finishRename);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      renderSidebar();
+    }
+  });
+}
+
 async function deleteItem(item: GroupedItem) {
   if (item.type === 'markdown') {
     await deleteFile(item.id);
@@ -212,7 +388,6 @@ async function deleteItem(item: GroupedItem) {
     }
   } else {
     await deleteAsset(item.id);
-    // Clear PDF viewer if this asset was being viewed
     const pdfViewer = document.getElementById('pdf-viewer');
     if (pdfViewer?.classList.contains('active')) {
       const headerText = pdfViewer.querySelector('span')?.textContent;
@@ -227,5 +402,14 @@ async function deleteItem(item: GroupedItem) {
 
 document.addEventListener('file-list-changed', () => renderSidebar());
 
-renderSidebar();
+// ── Open file by ID (from external redirect, e.g. share.astro) ──
+document.addEventListener('open-file-by-id', ((e: Event) => {
+  const ce = e as CustomEvent;
+  const fileId = ce.detail.fileId;
+  if (fileId) {
+    selectFile(fileId);
+  }
+}) as EventListener);
+
+initTabs();
 </script>

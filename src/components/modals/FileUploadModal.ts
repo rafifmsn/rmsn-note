@@ -8,7 +8,7 @@ import {
   generateId,
   getAllFiles,
   getAllAssets,
-} from "../../services/db.ts";
+} from "../../services/db";
 
 const ACCEPTED_TYPES = [
   "text/markdown",
@@ -136,6 +136,8 @@ export class FileUploadModal {
     const errors: string[] = [];
     let processed = 0;
 
+    const activeTabId = (window as any).__activeTabId || "";
+
     for (const file of files) {
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
       if (!ACCEPTED_EXTENSIONS.includes(ext)) {
@@ -153,6 +155,7 @@ export class FileUploadModal {
           name: file.name,
           content,
           type: "markdown",
+          tabId: activeTabId,
           updatedAt: Date.now(),
         });
       } else if ([".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(ext)) {
@@ -161,6 +164,7 @@ export class FileUploadModal {
           name: file.name,
           data: file,
           type: "image",
+          tabId: activeTabId,
           mimeType,
           size: file.size,
           updatedAt: Date.now(),
@@ -171,6 +175,7 @@ export class FileUploadModal {
           name: file.name,
           data: file,
           type: "pdf",
+          tabId: activeTabId,
           mimeType: "application/pdf",
           size: file.size,
           updatedAt: Date.now(),

@@ -3,7 +3,7 @@
  * Receives markdown string, renders HTML, optionally renders mermaid blocks.
  */
 
-import { renderMarkdown, containsMermaid } from "../../utils/markdown.ts";
+import { renderMarkdown, containsMermaid } from "./markdown";
 import { codeToHtml } from "shiki";
 import mermaid from "mermaid";
 
@@ -13,7 +13,7 @@ mermaid.initialize({
   theme: "dark",
   securityLevel: "loose",
   flowchart: {
-    useMaxWidth: false, // Disables full-width stretching so it uses true size
+    useMaxWidth: false,
     htmlLabels: true,
   },
 });

@@ -154,4 +154,20 @@ document.addEventListener('file-selected', ((e: Event) => {
     previewBtn?.classList.add('hidden');
   }
 }) as EventListener);
+
+// ── Open file from query param (e.g. from share.astro redirect) ──
+(function loadFileFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const fileId = params.get('fileId');
+  if (fileId) {
+    // 1. Wait a beat for sidebar/editor to init, then signal to open
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('open-file-by-id', { detail: { fileId } }));
+    }, 200);
+
+    // 2. Cleanly scrub the query parameters from the browser's address bar instantly
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+})();
 </script>

@@ -6,23 +6,117 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <body class="h-full w-full overflow-hidden bg-background">
     <div id="app-root" class="flex flex-col h-full w-full">
       <!-- Topbar (minimal) -->
-      <div class="flex items-center h-(--topbar-height) px-4 border-b border-(--topbar-border) bg-(--topbar-bg)">
-        <a href="/" class="text-sm font-semibold text-text-primary no-underline font-secondary tracking-tight">RMSN Note</a>
-        <span class="mx-2 text-text-muted text-xs">/</span>
-        <span class="text-sm text-text-secondary pt-1">Kanban</span>
+      <div class="flex items-center justify-between h-(--topbar-height) px-4 border-b border-(--topbar-border) bg-(--topbar-bg)">
+        <div class="flex items-center gap-2">
+          <a href="/" class="text-sm font-semibold text-text-primary no-underline font-secondary tracking-tight">RMSN Note</a>
+          <span class="text-text-muted text-xs">/</span>
+          <span class="text-sm text-text-secondary pt-1">Kanban</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btn-import-kanban" class="flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium bg-(--btn-secondary-bg) text-(--btn-secondary-text) border border-(--btn-secondary-border) hover:bg-(--btn-secondary-hover-bg) transition-colors cursor-pointer" title="Import Kanban cards">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Import</span>
+          </button>
+          <button id="btn-export-kanban" class="flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium bg-(--btn-secondary-bg) text-(--btn-secondary-text) border border-(--btn-secondary-border) hover:bg-(--btn-secondary-hover-bg) transition-colors cursor-pointer" title="Export Kanban cards">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Export</span>
+          </button>
+        </div>
       </div>
+
+      <!-- Hidden file input for import -->
+      <input type="file" id="kanban-import-input" accept=".json" class="hidden" />
+
       <div id="kanban-board" class="flex-1 overflow-hidden"></div>
     </div>
   </body>
 </BaseLayout>
 
 <script>
-import { KanbanBoard } from '../components/kanban/KanbanBoard.ts';
+import { KanbanBoard } from '../components/kanban/KanbanBoard';
+import { getKanbanCards, saveKanbanCard, generateId, initDefaultTabs, getTabs } from '../services/db';
+
+// Initialize tabs so __activeTabId is available
+let activeTabId = '';
+initDefaultTabs().then((tabs) => {
+  const saved = localStorage.getItem('rmsn-active-tab');
+  if (saved && tabs.some((t) => t.id === saved)) {
+    activeTabId = saved;
+  } else {
+    activeTabId = tabs[0]?.id || '';
+  }
+  // Reload board now that we have the proper tabId
+  document.dispatchEvent(new CustomEvent('kanban-reload'));
+});
+
+Object.defineProperty(window, '__activeTabId', {
+  get: () => activeTabId,
+  configurable: true,
+});
 
 const boardContainer = document.getElementById('kanban-board');
+let board: KanbanBoard | null = null;
 if (boardContainer) {
-  new KanbanBoard(boardContainer);
+  board = new KanbanBoard(boardContainer);
 }
+
+// ── Export ──
+document.getElementById('btn-export-kanban')?.addEventListener('click', async () => {
+  const cards = await getKanbanCards();
+  const data = JSON.stringify({ version: 1, cards }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kanban-export-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ── Import ──
+document.getElementById('btn-import-kanban')?.addEventListener('click', () => {
+  document.getElementById('kanban-import-input')?.click();
+});
+
+document.getElementById('kanban-import-input')?.addEventListener('change', async (e) => {
+  const input = e.target as HTMLInputElement;
+  if (!input.files || input.files.length === 0) {
+    alert('No file selected.');
+    return;
+  }
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.cards || !Array.isArray(data.cards)) {
+      alert('Invalid kanban file format.');
+      return;
+    }
+
+    // Get current active tab
+    const tabs = await getTabs();
+    const activeTabId = tabs[0]?.id || '';
+
+    for (const card of data.cards) {
+      await saveKanbanCard({
+        id: generateId(),
+        title: card.title || 'Untitled',
+        description: card.description || '',
+        column: card.column || 'todo',
+        order: card.order ?? 0,
+        tabId: card.tabId || activeTabId,
+        createdAt: card.createdAt || Date.now(),
+      });
+    }
+    document.dispatchEvent(new CustomEvent('kanban-reload'));
+    alert(`Imported ${data.cards.length} card(s) successfully.`);
+  } catch (err) {
+    alert('Failed to import kanban file. Make sure it is a valid JSON file.');
+    console.error('Import error:', err);
+  }
+  input.value = '';
+});
 </script>
 
 <style>
